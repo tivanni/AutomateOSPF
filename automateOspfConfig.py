@@ -36,9 +36,13 @@ for line in file_config:
             device_properties['ospf_router_id'] = ospf_router_id
             devices[device] = device_properties
         elif(first_field == "area"):
+            area_properties = {}
             area = line_fields[1]
             network = netaddr.IPNetwork(line_fields[2])
-            areas[area] = network
+            stub = line_fields[3]
+            area_properties['network'] = network
+            area_properties['stub'] = stub
+            areas[area] = area_properties
 
 
 ###Start devices configuration
@@ -52,6 +56,9 @@ for hostname in hostnames:
     #set the ip for the connection
     switch['ip'] = devices[hostname]['ip_address_mgmt']
     device_connect = ConnectHandler(**switch)
+
+    ###Check what areas have to be configured on the switch
+
     output_ip_int_brief =device_connect.send_command ("show ip int brief")
     ###Reading the output of command executed.Output is in the following form
     '''R1#show ip interface brief
@@ -92,11 +99,49 @@ for hostname in hostnames:
                 if (interface_address != "unassigned"):
                     ip_address = netaddr.IPAddress(interface_address)
                     for area in areas_list:
-                        if( (ip_address in areas[area]) and ( area not in area_to_configure )): ###if the interface has an ip address in one of the configured area, the area has to be configured in ospf
+                        if( (ip_address in areas[area]['network']) and ( area not in area_to_configure )): ###if the interface has an ip address in one of the configured area, the area has to be configured in ospf
                            area_to_configure.append(area)
 
-    print "Device " + hostname
-    print "area_to_configure: " + str(area_to_configure)
+    ###Preparing the config commands
+    cmd_ospf_process = 'router ospf ' +  devices[hostname]['ospf_process_number']
+    cmd_ospf_rid = "router-id " + devices[hostname]['ospf_router_id']
+    config_commands = [cmd_ospf_process,cmd_ospf_rid]
+    for area in area_to_configure:
+        ###Configure network command
+        cmd_ospf_network = "network " +  str(areas[area]['network'].network) + " " + str(areas[area]['network'].hostmask) + " area " + area
+        config_commands.append(cmd_ospf_network)
+        ###Configure stub
+        cmd_ospf_stub = ""
+        if(areas[area]['stub'] == "stub"):
+            cmd_ospf_stub = "area " + area + " stub"
+        elif(areas[area]['stub'] == "totally-stub"):
+            if(len(area_to_configure) > 1): #if there is more then one area to configure on the device, the device is an ABR: a different command is required
+                cmd_ospf_stub = "area " + area + " stub no-summary"
+            else:
+                cmd_ospf_stub = "area " + area + " stub"
+        elif(areas[area]['stub'] == "nssa"):
+            if (len(area_to_configure) > 1):  # if there is more then one area to configure on the device, the device is an ABR: a different command is required
+                cmd_ospf_stub = "area " + area + " nssa default-information-originate"
+            else:
+                cmd_ospf_stub = "area " + area + " nssa"
+        elif (areas[area]['stub'] == "totally-nssa"):
+            if (len(
+                    area_to_configure) > 1):  # if there is more then one area to configure on the device, the device is an ABR: a different command is required
+                cmd_ospf_stub = "area " + area + " nssa no-summary"
+            else:
+                cmd_ospf_stub = "area " + area + " nssa"
+        if(cmd_ospf_stub): ###check if any stub command has to be added
+            config_commands(cmd_ospf_stub)
+
+
+
+    output = device_connect.send_config_set(config_commands)
+
+
+
+
+
+
 
 
 
