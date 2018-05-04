@@ -47,9 +47,15 @@ for line in file_config:
 
 ###Start devices configuration
 
+print "Starting Configuration phase\n"
+
 hostnames = devices.keys()
+hostnames.sort() #Sort in alphabethical order
 
 for hostname in hostnames:
+
+    print "Configuring Device: " + hostname
+
     ###The list area_to_configure will keep track of the area/s that need to be configured on the switch
     area_to_configure = []
     areas_list = areas.keys()
@@ -106,12 +112,14 @@ for hostname in hostnames:
     cmd_ospf_process = 'router ospf ' +  devices[hostname]['ospf_process_number']
     cmd_ospf_rid = "router-id " + devices[hostname]['ospf_router_id']
     config_commands = [cmd_ospf_process,cmd_ospf_rid]
+    if(len(area_to_configure) > 1):
+        print "Device " + hostname + " is an ABR!"
     for area in area_to_configure:
         ###Configure network command
         cmd_ospf_network = "network " +  str(areas[area]['network'].network) + " " + str(areas[area]['network'].hostmask) + " area " + area
         config_commands.append(cmd_ospf_network)
         ###Configure stub
-        cmd_ospf_stub = ""
+        cmd_ospf_stub = None
         if(areas[area]['stub'] == "stub"):
             cmd_ospf_stub = "area " + area + " stub"
         elif(areas[area]['stub'] == "totally-stub"):
@@ -125,17 +133,18 @@ for hostname in hostnames:
             else:
                 cmd_ospf_stub = "area " + area + " nssa"
         elif (areas[area]['stub'] == "totally-nssa"):
-            if (len(
-                    area_to_configure) > 1):  # if there is more then one area to configure on the device, the device is an ABR: a different command is required
+            if (len(area_to_configure) > 1):  # if there is more then one area to configure on the device, the device is an ABR: a different command is required
                 cmd_ospf_stub = "area " + area + " nssa no-summary"
             else:
                 cmd_ospf_stub = "area " + area + " nssa"
         if(cmd_ospf_stub): ###check if any stub command has to be added
-            config_commands(cmd_ospf_stub)
+            config_commands.append(cmd_ospf_stub)
 
 
 
+    ###Send The commands to the switch
     output = device_connect.send_config_set(config_commands)
+    print output + "\n"
 
 
 
