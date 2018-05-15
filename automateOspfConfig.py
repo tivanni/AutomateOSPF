@@ -31,9 +31,11 @@ for line in file_config:
             ip_address_mgmt = line_fields[2]
             ospf_process_number = line_fields[3]
             ospf_router_id = line_fields [4]
+            ospf_redistribution = line_fields[5]
             device_properties['ip_address_mgmt'] = ip_address_mgmt
             device_properties['ospf_process_number'] = ospf_process_number
             device_properties['ospf_router_id'] = ospf_router_id
+            device_properties['redistribution'] = ospf_redistribution
             devices[device] = device_properties
         elif(first_field == "area"):
             area_properties = {}
@@ -139,6 +141,19 @@ for hostname in hostnames:
                 cmd_ospf_stub = "area " + area + " nssa"
         if(cmd_ospf_stub): ###check if any stub command has to be added
             config_commands.append(cmd_ospf_stub)
+        ###Configure redistributionc
+        if(devices[hostname]['redistribution'] != "none"):
+            redistribution_fields = devices[hostname]['redistribution'].split(";")
+            for redistribution_field in redistribution_fields:
+                if("-" in redistribution_field):
+                    redistribution_subfield = redistribution_field.split("-")
+                    cmd_ospf_redistribution = "redistribute " + redistribution_subfield[0] + " " + redistribution_subfield[1] + " subnets"
+
+                else:
+                    cmd_ospf_redistribution = "redistribute " + redistribution_field + " subnets"
+                config_commands.append(cmd_ospf_redistribution)
+
+
 
 
 
