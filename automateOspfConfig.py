@@ -32,10 +32,12 @@ for line in file_config:
             ospf_process_number = line_fields[3]
             ospf_router_id = line_fields [4]
             ospf_redistribution = line_fields[5]
+            ospf_default_originate = line_fields[6]
             device_properties['ip_address_mgmt'] = ip_address_mgmt
             device_properties['ospf_process_number'] = ospf_process_number
             device_properties['ospf_router_id'] = ospf_router_id
             device_properties['redistribution'] = ospf_redistribution
+            device_properties['default_information_originate'] = ospf_default_originate
             devices[device] = device_properties
         elif(first_field == "area"):
             area_properties = {}
@@ -152,10 +154,13 @@ for hostname in hostnames:
                 else:
                     cmd_ospf_redistribution = "redistribute " + redistribution_field + " subnets"
                 config_commands.append(cmd_ospf_redistribution)
-
-
-
-
+        ###Configure default route propagation
+        if(devices[hostname]['default_information_originate'] == "yes"):
+            cmd_ospf_default_information_originate = "default-information originate"
+            config_commands.append(cmd_ospf_default_information_originate)
+        elif(devices[hostname]['default_information_originate'] == "alw"):
+            cmd_ospf_default_information_originate = "default-information originate always"
+            config_commands.append(cmd_ospf_default_information_originate)
 
     ###Send The commands to the switch
     output = device_connect.send_config_set(config_commands)
